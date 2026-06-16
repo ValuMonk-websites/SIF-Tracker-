@@ -628,7 +628,7 @@ function renderRows() {
     var ann = annualised(f.rsi, f.inception);
     var annHtml = ann!=null ? fret(ann) : '<span class="ret rna">N/A</span>';
     return '<tr onclick="showDetail(\''+f.id+'\')">'+
-      '<td style="padding:12px 12px 12px 18px;text-align:left"><div class="fn">'+f.name+(f.nfo?'<span class="nfo-b">NFO</span>':'')+'</div><div class="fm-info">'+f.amc+' &middot; '+f.fm+'</div>'+pill(f.cat)+'</td>'+
+      '<td style="padding:12px 12px 12px 18px;text-align:left"><div class="fn">'+f.name+(f.nfo?'<span class="nfo-b">NFO</span>':'')+'</div><div class="fm-info">'+f.amc+(f.fm?' &middot; '+f.fm:'')+(f.autoDetected?' &middot; <span style="color:var(--amber);font-weight:600">DETAILS PENDING</span>':'')+'</div>'+pill(f.cat)+'</td>'+
       '<td style="text-align:right">'+fnav(f)+'</td>'+
       '<td style="text-align:right">'+fret(f.r1m)+'</td>'+
       '<td style="text-align:right">'+fret(f.r3m)+'</td>'+
@@ -758,7 +758,7 @@ function showDetail(id) {
       ['Risk Level', f.risk?'L'+f.risk+' — '+RL[f.risk]:'—'],
       ['FM Experience', f.fmYrs?f.fmYrs+' yrs':'—'],
       ['Min. Horizon', f.minHorizon||'—'],
-      ['Inception', f.inception],
+      ['Inception', f.inception||'—'],
       ['Benchmark', f.bench||'—']
     ];
     metrics = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">'+
@@ -776,7 +776,7 @@ function showDetail(id) {
       riskBadge+
       (f.nfo?'<span class="nfo-b" style="margin-left:2px">NFO</span>':'')+'</div>'+
     '<h1 class="dtitle">'+f.name+'</h1>'+
-    '<p class="dmeta">'+f.amc+' &middot; FM: <strong>'+f.fm+'</strong>'+(f.fmYrs?' ('+f.fmYrs+' yrs exp.)':'')+' &middot; Since '+f.inception+'</p>'+
+    '<p class="dmeta">'+f.amc+(f.fm?' &middot; FM: <strong>'+f.fm+'</strong>'+(f.fmYrs?' ('+f.fmYrs+' yrs exp.)':''):'')+(f.inception?' &middot; Since '+f.inception:'')+(f.autoDetected?' &middot; <strong style="color:#fbbf24">PROFILE PENDING — LIVE NAV ONLY</strong>':'')+'</p>'+
     (f.purpose?'<p style="margin-top:10px;font-size:14px;color:rgba(255,255,255,.6);max-width:60ch">'+f.purpose+'</p>':'')+
     '</div>'+
     '<div class="chart-wrap"><p class="dclbl">NAV Performance vs '+(f.bench||'Nifty 50')+'</p>'+buildNavChart(f)+'</div>'+
@@ -904,7 +904,7 @@ function renderScreened() {
       var ann = annualised(f.rsi, f.inception);
       return '<div class="si-item" onclick="showDetail(\''+f.id+'\')">'+
         '<div style="flex:1;min-width:150px"><p style="font-weight:700;font-size:14px;margin:0 0 2px">'+f.name+'</p><p style="font-size:11.5px;color:var(--muted2);margin:0 0 5px">'+f.amc+'</p><span class="fp" style="background:'+p[0]+';color:'+p[1]+'">'+p[2]+'</span></div>'+
-        [['NAV',f.nav?'&#8377;'+f.nav.toFixed(f.navBase?1:4):'—','var(--ink)'],['1M',f.r1m!=null?(f.r1m>=0?'+':'')+f.r1m.toFixed(2)+'%':'N/A',f.r1m==null?'var(--muted2)':f.r1m>=0?'var(--pos)':'var(--neg)'],['SI',(f.rsi>=0?'+':'')+f.rsi.toFixed(2)+'%',f.rsi>=0?'var(--pos)':'var(--neg)'],['Ann.',ann!=null?(ann>=0?'+':'')+ann.toFixed(2)+'%':'N/A',ann==null?'var(--muted2)':ann>=0?'var(--pos)':'var(--neg)'],['AUM',f.aum?'&#8377;'+f.aum.toLocaleString('en-IN')+' Cr':'N/A','var(--ink)']].map(function(m){ return '<div style="text-align:center;min-width:56px"><p style="font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);margin:0 0 3px">'+m[0]+'</p><p style="font-family:\'JetBrains Mono\',monospace;font-size:13px;font-weight:700;color:'+m[2]+';margin:0">'+m[1]+'</p></div>'; }).join('')+
+        [['NAV',f.nav?'&#8377;'+f.nav.toFixed(f.navBase?1:4):'—','var(--ink)'],['1M',f.r1m!=null?(f.r1m>=0?'+':'')+f.r1m.toFixed(2)+'%':'N/A',f.r1m==null?'var(--muted2)':f.r1m>=0?'var(--pos)':'var(--neg)'],['SI',f.rsi!=null?(f.rsi>=0?'+':'')+f.rsi.toFixed(2)+'%':'N/A',f.rsi==null?'var(--muted2)':f.rsi>=0?'var(--pos)':'var(--neg)'],['Ann.',ann!=null?(ann>=0?'+':'')+ann.toFixed(2)+'%':'N/A',ann==null?'var(--muted2)':ann>=0?'var(--pos)':'var(--neg)'],['AUM',f.aum?'&#8377;'+f.aum.toLocaleString('en-IN')+' Cr':'N/A','var(--ink)']].map(function(m){ return '<div style="text-align:center;min-width:56px"><p style="font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);margin:0 0 3px">'+m[0]+'</p><p style="font-family:\'JetBrains Mono\',monospace;font-size:13px;font-weight:700;color:'+m[2]+';margin:0">'+m[1]+'</p></div>'; }).join('')+
         '<div style="text-align:center">'+rdots(f.risk)+'</div></div>';
     }).join('');
 }
@@ -1143,6 +1143,7 @@ var AMFI_API = 'https://www.amfiindia.com/api/sif-latest-nav?type=';
 
 function parseAmfiJson(json) {
   var lines = [];
+  AMFI_RAW_SCHEMES = []; // full records kept for auto-detection
   (json.data || []).forEach(function(tb) {
     (tb.categories || []).forEach(function(cat) {
       (cat.groups || []).forEach(function(g) {
@@ -1151,6 +1152,11 @@ function parseAmfiJson(json) {
           if (!isNaN(nav) && nav > 0 && s.Date) {
             if (s.ISINPO) lines.push(s.ISINPO + ';' + nav + ';' + s.Date);
             if (s.ISINRI) lines.push(s.ISINRI + ';' + nav + ';' + s.Date);
+            AMFI_RAW_SCHEMES.push({
+              isinPO: s.ISINPO || '', isinRI: s.ISINRI || '',
+              amc: s.SIFName || '', category: s.category || '',
+              navName: s.NavName || '', nav: nav, date: s.Date
+            });
           }
         });
       });
@@ -1158,6 +1164,7 @@ function parseAmfiJson(json) {
   });
   return lines.join('\n');
 }
+var AMFI_RAW_SCHEMES = [];
 
 function fetchNavFile() {
   return fetch(AMFI_API, { cache: 'no-store' })
@@ -1209,6 +1216,158 @@ function setBadge(state, date) {
 }
 
 // ── MAIN REFRESH ──
+
+// ══════════════════════════════════════════════════════════════
+// AUTO-DETECT NEW SIFs
+// Compares AMFI's live feed against our known ISIN_MAP. Any
+// Regular-Plan-Growth scheme whose ISIN we don't recognise gets
+// auto-added as a placeholder fund: live NAV + returns work
+// immediately, but qualitative fields (fund manager, strategy,
+// benchmark, comparable MF) stay blank until manually completed.
+// ══════════════════════════════════════════════════════════════
+
+// AMFI category string → our internal category code
+function mapAmfiCategory(catStr) {
+  if (!catStr) return 'hybrid';
+  var c = catStr.toLowerCase();
+  if (c.indexOf('ex-top 100') >= 0 || c.indexOf('ex top 100') >= 0) return 'extop';
+  if (c.indexOf('sector rotation') >= 0) return 'sector';
+  if (c.indexOf('active asset allocator') >= 0 || c.indexOf('asset allocator') >= 0) return 'asset';
+  if (c.indexOf('equity long-short') >= 0 || c.indexOf('equity long short') >= 0) return 'equity';
+  if (c.indexOf('hybrid long-short') >= 0 || c.indexOf('hybrid long short') >= 0) return 'hybrid';
+  return 'hybrid';
+}
+function catLabelFor(code) {
+  return { hybrid:'Hybrid Long-Short', equity:'Equity Long-Short', extop:'Equity Ex-Top 100',
+           asset:'Active Asset Allocator', sector:'Sector Rotation' }[code] || 'Hybrid Long-Short';
+}
+
+// Build a clean display name from AMFI's verbose NavName
+// e.g. "Altiva Hybrid Long-Short Fund - Regular Plan - Growth" -> "Altiva Hybrid Long-Short"
+function cleanFundName(navName, amc) {
+  var n = navName
+    .replace(/\s*-?\s*(Direct|Regular)\s*Plan?\s*-?/gi, '')
+    .replace(/\s*-?\s*(Growth|IDCW|Dividend|Payout|Reinvestment)\s*(Option)?\s*-?/gi, '')
+    .replace(/\bFund\b\s*$/i, 'Fund')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^-+|-+$/g, '')
+    .trim();
+  return n || navName;
+}
+
+function detectNewFunds() {
+  if (!AMFI_RAW_SCHEMES.length) return;
+  var knownIsins = {};
+  Object.keys(ISIN_MAP).forEach(function(id){ knownIsins[ISIN_MAP[id]] = true; });
+  // Also exclude ISINs already covered (any plan) by existing FUNDS, to avoid
+  // re-adding a fund we already track under a Direct-plan ISIN by mistake.
+  var knownAmcCat = {};
+  FUNDS.forEach(function(f){ knownAmcCat[(f.amc||'')+'|'+f.cat] = true; });
+
+  // Build a set of ISIN prefixes (first 8 chars identify the AMC registrar code)
+  // for every ISIN we already track, per category. This is far more reliable than
+  // matching AMC display names, which differ between our records and AMFI's feed
+  // (e.g. our "Edelweiss MF" vs AMFI's "Altiva SIF" fund-family name).
+  var knownPrefixCat = {};
+  Object.keys(ISIN_MAP).forEach(function(id) {
+    var f = FUNDS.find(function(x){ return x.id===id; });
+    if (f && ISIN_MAP[id]) {
+      knownPrefixCat[ISIN_MAP[id].substring(0,8) + '|' + f.cat] = true;
+    }
+  });
+
+  var candidates = AMFI_RAW_SCHEMES.filter(function(s) {
+    var hasDirect = /direct/i.test(s.navName);
+    var hasGrowth = /growth/i.test(s.navName);
+    var hasIdcw = /idcw|dividend|payout|reinvestment/i.test(s.navName);
+    // Treat as Regular Growth if explicitly marked Regular+Growth, OR if it's a
+    // Growth-option scheme with no plan word at all (AMFI's default/legacy naming
+    // for some AMCs omits "Regular" since it's the original/default plan).
+    var isRegGrowth = hasGrowth && !hasIdcw && !hasDirect;
+    if (!isRegGrowth) return false;
+    var isin = s.isinPO || s.isinRI;
+    if (!isin || knownIsins[isin]) return false;
+    return true;
+  });
+
+  var added = 0;
+  candidates.forEach(function(s) {
+    var isin = s.isinPO || s.isinRI;
+    var catCode = mapAmfiCategory(s.category);
+    var prefixKey = isin.substring(0,8) + '|' + catCode;
+    // Skip if this ISIN prefix (= AMC) + category combo is already tracked under a
+    // different plan/option ISIN — it's the same fund family, not a new one.
+    if (knownPrefixCat[prefixKey]) { knownIsins[isin] = true; return; }
+
+    var cleanName = cleanFundName(s.navName, s.amc);
+
+    // Check if this matches an existing NFO placeholder (by category + fuzzy brand match
+    // in the cleaned name) — if so, upgrade that placeholder instead of creating a duplicate.
+    var brandWord = cleanName.split(' ')[0].toLowerCase();
+    var nfoMatch = FUNDS.find(function(f) {
+      return f.nfo && f.cat === catCode &&
+        (f.name.toLowerCase().indexOf(brandWord) >= 0 || (f.brand && f.brand.toLowerCase() === brandWord));
+    });
+    if (nfoMatch) {
+      nfoMatch.nfo = false;
+      nfoMatch.nav = s.nav;
+      nfoMatch.navDate = s.date;
+      nfoMatch.navLive = true;
+      ISIN_MAP[nfoMatch.id] = isin;
+      knownIsins[isin] = true;
+      console.log('[ValuMonk] NFO LIVE: "' + nfoMatch.name + '" now trading — NAV tracking started. Other details already on file.');
+      return;
+    }
+
+    var id = 'auto-' + (s.amc||'unk').toLowerCase().replace(/[^a-z0-9]+/g,'-') + '-' + catCode;
+    if (FUNDS.find(function(f){ return f.id===id; })) return; // already auto-added this session
+
+    var newFund = {
+      id: id,
+      amc: s.amc || 'Unknown AMC',
+      brand: (s.amc||'').split(' ')[0] || 'New',
+      name: cleanName,
+      shortName: cleanName,
+      cat: catCode,
+      catLabel: catLabelFor(catCode),
+      nav: s.nav,
+      navDate: s.date,
+      navLive: true,
+      inceptionDate: null,
+      inception: null,
+      r1m: null, r3m: null, r6m: null, r1y: null, rsi: null,
+      aum: 0, er: null, exitLoad: null, exit: null,
+      liq: null, minHorizon: null, bench: null,
+      fm: null, fmYrs: null, riskLevel: null, risk: null,
+      targetReturn: null, target: null,
+      purpose: null, suitedFor: null, suited: null,
+      tax: null, strategy: null, monthly: null,
+      compMF: null,
+      nfo: false,
+      autoDetected: true
+    };
+    FUNDS.push(newFund);
+    ISIN_MAP[id] = isin;
+    knownIsins[isin] = true;
+    added++;
+    console.log('[ValuMonk] NEW SIF AUTO-DETECTED: "' + cleanName + '" (' + s.amc + ') — qualitative details pending manual entry.');
+  });
+
+  if (added > 0) {
+    console.log('[ValuMonk] ' + added + ' new fund(s) auto-added with live NAV. Send factsheets to complete their profiles.');
+    showNewFundBanner(added);
+  }
+}
+
+function showNewFundBanner(count) {
+  if (document.getElementById('newfund-banner')) return;
+  var b = document.createElement('div');
+  b.id = 'newfund-banner';
+  b.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:500;background:#111827;color:#fff;padding:14px 18px;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.35);max-width:300px;font-size:12.5px;line-height:1.5;font-family:Inter,sans-serif';
+  b.innerHTML = '<strong style="color:#fbbf24">'+count+' new SIF'+(count>1?'s':'')+' detected</strong><br>Live NAV tracking started automatically. Fund details pending — <a href="https://valumonk.com/contact/" style="color:#4ade80">notify ValuMonk</a> to complete the profile.<span style="position:absolute;top:8px;right:10px;cursor:pointer;color:rgba(255,255,255,.5)" onclick="this.parentElement.remove()">✕</span>';
+  document.body.appendChild(b);
+}
+
 function refreshNavs() {
   setBadge('loading');
   fetchNavFile()
@@ -1230,6 +1389,7 @@ function refreshNavs() {
           }
         }
       });
+      detectNewFunds();
       if (updated > 0) {
         LIVE_NAV_OK = true;
         LAST_UPDATED = new Date();
