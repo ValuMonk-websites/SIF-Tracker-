@@ -276,7 +276,7 @@ html { scroll-behavior:smooth }
   .tscroll { overflow-x:auto;-webkit-overflow-scrolling:touch }
   .twrap { border-radius:8px }
   /* Hide less critical columns on mobile */
-  .col-er,.col-aum,.col-ann,.col-liq { display:none }
+  .col-er,.col-ann,.col-liq { display:none }
 
   /* ── STATS GRID ── */
   .sgrid { grid-template-columns:repeat(2,1fr);gap:8px;padding:14px 0 12px }
@@ -404,7 +404,7 @@ html { scroll-behavior:smooth }
 
 <div id="v-heatmap" class="view">
   <div class="wrap">
-    <div class="sechd"><p class="eyebrow"><span class="e-line"></span>Monthly Returns Analysis</p><h2 class="sectitle">Performance Heatmap</h2><p class="secsub">Month-by-month returns for every live SIF vs Nifty 50.</p></div>
+    <div class="sechd"><p class="eyebrow"><span class="e-line"></span>Monthly Returns Analysis</p><h2 class="sectitle">Performance Heatmap</h2><p class="secsub">Month-by-month returns for every live SIF since inception.</p></div>
     <div class="hlegend" id="hlegend"></div>
     <div class="htblw" id="htbl"></div>
     <p class="tfoot">NAVs update live daily from AMFI &middot; returns recalculated monthly</p>
@@ -453,9 +453,9 @@ var CL = {
 };
 var RL = ['','Conservative','Low-Moderate','Moderate','Mod.-High','High'];
 var RC = ['','#059669','#10b981','#f59e0b','#f97316','#ef4444'];
-var SK = 'aum', SD = -1, FC = 'all', SQ = '';
+var SK = 'rsi', SD = -1, FC = 'all', SQ = '';
 var PORT = {};
-var TS = {minAum:0, maxEr:2.0, selCat:'all', maxRisk:5};
+var TS = {maxEr:2.0, selCat:'all', maxRisk:5};
 var ALL_VIEWS = ['tracker','heatmap','compare','tools','faq','detail'];
 
 function pill(cat) {
@@ -469,11 +469,8 @@ function fret(v) {
 }
 function fnav(f) {
   if (!f.nav) return '<span style="color:var(--muted2)">—</span>';
-  // Show shimmer skeleton until live NAV confirmed
-  if (!LIVE_NAV_OK && !f.navLive) {
-    return '<span style="display:inline-block;width:58px;height:12px;border-radius:3px;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;vertical-align:middle"></span>';
-  }
-  return '<span class="nv"'+(f.navLive?' style="color:var(--pos)"':'')+'>&#8377;'+f.nav.toFixed(f.navBase?1:4)+'</span>'+(f.navBase?'<span class="nv-b">&#8377;1k base</span>':'');
+  // Data comes from Python server - always live, no skeleton needed
+  return '<span class="nv" style="color:var(--pos)">&#8377;'+f.nav.toFixed(f.nav>100?2:4)+'</span>'+(f.navBase?'<span class="nv-b">&#8377;1k base</span>':'');
 }
 function hcol(v) {
   if (v == null) return ['#f1f5f9','#94a3b8'];
@@ -497,7 +494,7 @@ function annualised(rsi, inceptionStr) {
   // Parse inception date
   var d = new Date(inceptionStr);
   if (isNaN(d)) return null;
-  var now = new Date('2026-06-04');
+  var now = new Date();
   var days = (now - d) / 86400000;
   var years = days / 365;
   if (years <= 0) return null;
@@ -529,21 +526,36 @@ function animateCounters() {
   });
 }
 
+// _STATS is set by loadData() from server response
+var _STATS = {};
+
 function buildStats() {
-  var live = FUNDS.filter(function(f){ return !f.nfo; });
-  var aum = live.reduce(function(s,f){ return s+(f.aum||0); }, 0);
-  var r = live.filter(function(f){ return f.rsi != null; }).sort(function(a,b){ return b.rsi-a.rsi; });
-  var avgRsi = r.length ? r.reduce(function(s,f){return s+f.rsi;},0)/r.length : 0;
-  var cats = new Set(live.map(function(f){return f.cat;})).size;
-  var stats = [
-    {l:'Live SIFs', v:live.length, s:'+'+FUNDS.filter(function(f){return f.nfo;}).length+' NFO', c:'var(--indigo)', anim:{t:live.length}},
-    {l:'AMCs', v:new Set(live.map(function(f){return f.amc;})).size, s:'SEBI-approved', anim:{t:new Set(live.map(function(f){return f.amc;})).size}},
-    {l:'Total AUM', v:'&#8377;'+(aum/1000).toFixed(1)+'k Cr', s:'Live strategies', c:'var(--green)', anim:{t:aum/1000, p:'\u20B9', x:'k Cr', d:1}},
-    {l:'Categories', v:cats, s:'SIF strategies', c:'var(--indigo)', anim:{t:cats}},
-    {l:'Avg SI Return', v:(avgRsi>=0?'+':'')+avgRsi.toFixed(2)+'%', s:'across live funds', c:avgRsi>=0?'var(--pos)':'var(--neg)', anim:{t:avgRsi, p:avgRsi>=0?'+':'', x:'%', d:2}}
+  var s = _STATS;
+  var live = s.liveSIFs || FUNDS.filter(function(f){ return !f.nfo; }).length;
+  var nfo  = s.nfoCount  || FUNDS.filter(function(f){ return f.nfo; }).length;
+  var amcs = s.amcs      || new Set(FUNDS.filter(function(f){return !f.nfo;}).map(function(f){return f.amc;})).size;
+  var aum = 0; // AUM removed
+  var cats = s.categories|| new Set(FUNDS.filter(function(f){return !f.nfo;}).map(function(f){return f.cat;})).size;
+  var avg  = s.avgRsi    != null ? s.avgRsi : 0;
+  if (avg === 0 && FUNDS.length) {
+    var rs = FUNDS.filter(function(f){ return !f.nfo && f.rsi != null; });
+    avg = rs.length ? rs.reduce(function(t,f){ return t+f.rsi; },0)/rs.length : 0;
+  }
+
+  var rows = [
+    {l:'Live SIFs',     v:live, s:'+'+nfo+' NFO', c:'var(--indigo)', anim:{t:live}},
+    {l:'AMCs',          v:amcs, s:'SEBI-approved',  anim:{t:amcs}},
+
+    {l:'Categories',    v:cats, s:'SIF strategies', c:'var(--indigo)', anim:{t:cats}},
+    {l:'Avg SI Return', v:(avg>=0?'+':'')+avg.toFixed(2)+'%', s:'across live funds',
+     c:avg>=0?'var(--pos)':'var(--neg)', anim:{t:avg, p:avg>=0?'+':'', x:'%', d:2}}
   ];
-  document.getElementById('sgrid').innerHTML = stats.map(function(s) {
-    return '<div class="sc"><p class="slbl">'+s.l+'</p><p class="sval" style="color:'+(s.c||'var(--ink)')+'"'+(s.anim?' data-target="'+s.anim.t+'" data-prefix="'+(s.anim.p||'')+'" data-suffix="'+(s.anim.x||'')+'" data-dec="'+(s.anim.d||0)+'"':'')+'>'+s.v+'</p>'+(s.s?'<p class="ssub">'+s.s+'</p>':'')+'</div>';
+  document.getElementById('sgrid').innerHTML = rows.map(function(r) {
+    return '<div class="sc"><p class="slbl">'+r.l+'</p>' +
+      '<p class="sval" style="color:'+(r.c||'var(--ink)')+'"' +
+      (r.anim?' data-target="'+r.anim.t+'" data-prefix="'+(r.anim.p||'')+
+      '" data-suffix="'+(r.anim.x||'')+'" data-dec="'+(r.anim.d||0)+'"':'')+
+      '>'+r.v+'</p>'+(r.s?'<p class="ssub">'+r.s+'</p>':'')+'</div>';
   }).join('');
   animateCounters();
 }
@@ -565,7 +577,7 @@ function buildThead() {
     ['r1y','1Y',false,false,true],
     ['rsi','Since Incep.',false,false,false],
     ['ann','Ann. Return',false,false,true],
-    ['aum','AUM (&#8377;Cr)',false,false,true],
+
     ['er','TER',false,false,true],
     [null,'Purpose',true,false,true],
     [null,'Comparable MF Category',true,false,true],
@@ -638,8 +650,7 @@ function renderRows() {
       '<td style="text-align:right">'+fret(f.r1y)+'</td>'+
       '<td style="text-align:right">'+fret(f.rsi)+'</td>'+
       '<td style="text-align:right">'+annHtml+'</td>'+
-      '<td style="text-align:right;font-family:\'JetBrains Mono\',monospace;font-size:12px">'+(f.aum?f.aum.toLocaleString('en-IN'):'—')+'</td>'+
-      '<td style="text-align:right;font-family:\'JetBrains Mono\',monospace;font-size:12px">'+(f.er?f.er+'%':'—')+'</td>'+
+            '<td style="text-align:right;font-family:\'JetBrains Mono\',monospace;font-size:12px">'+(f.er?f.er+'%':'—')+'</td>'+
       '<td class="m-hide" style="text-align:left;max-width:160px"><div style="font-size:11.5px;color:var(--ink);line-height:1.5">'+(f.purpose||'—')+'</div></td>'+
       '<td class="m-hide" style="text-align:left;max-width:175px"><div style="font-size:11.5px;color:var(--ink);line-height:1.5;font-weight:500">'+(f.compMF||'—')+'</div></td>'+
       '<td style="text-align:center">'+rdots(f.risk)+'</td>'+
@@ -660,10 +671,7 @@ function buildNavChart(f) {
   var nav = base;
   var points = [{m:'Start', v:base}];
   mArr.forEach(function(x){ nav = nav*(1+x[1]/100); points.push({m:x[0], v:parseFloat(nav.toFixed(4))}); });
-  var niftyNav = base;
-  var niftyPts = [{m:'Start', v:base}];
-  mArr.forEach(function(x){ niftyNav = niftyNav*(1+(NIFTY[x[0]]||0)/100); niftyPts.push({m:x[0], v:parseFloat(niftyNav.toFixed(4))}); });
-  var allVals = points.map(function(p){return p.v;}).concat(niftyPts.map(function(p){return p.v;}));
+  var allVals = points.map(function(p){return p.v;});
   var minV = Math.min.apply(null,allVals)*0.995, maxV = Math.max.apply(null,allVals)*1.005;
   var W=560, H=180, PL=48, PR=16, PT=16, PB=36;
   var cW = W-PL-PR, cH = H-PT-PB;
@@ -692,7 +700,7 @@ function buildNavChart(f) {
     '<path d="'+niftyPath+'" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>'+
     '<path d="'+fundPath+'" fill="none" stroke="'+fundColor+'" stroke-width="2.5"/>'+
     tooltip+
-    '<text x="'+(PL+cW*0.5)+'" y="'+PT+'" text-anchor="middle" font-size="8.5" fill="var(--muted)" font-family="JetBrains Mono,monospace">— Fund NAV &nbsp;&nbsp; &#8231;&#8231; '+(f.bench||'Nifty 50')+'</text>'+
+    
     '</svg>';
   return svg;
 }
@@ -707,17 +715,13 @@ function showDetail(id) {
   if (mArr.length) {
     // Build grouped bar chart: fund + Nifty side by side
     var maxA = Math.max.apply(null, mArr.map(function(x){
-      return Math.max(Math.abs(x[1]), Math.abs(NIFTY[x[0]]||0));
+      return Math.abs(x[1]);
     }).concat([0.1]));
     bars = '<div style="margin-top:8px">' +
       // Legend
-      '<div style="display:flex;gap:16px;margin-bottom:10px;align-items:center">' +
-        '<div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:var(--indigo)"></div><span style="font-size:11px;color:var(--muted)">Fund</span></div>' +
-        '<div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#94a3b8"></div><span style="font-size:11px;color:var(--muted)">Nifty 50</span></div>' +
-      '</div>' +
+
       mArr.map(function(x) {
         var m=x[0], v=x[1];
-        var n=NIFTY[m]||null;
         var wf=Math.abs(v)/maxA*100;
         var wn=n!=null?Math.abs(n)/maxA*100:0;
         var colf=v>=0?'var(--pos)':'var(--neg)';
@@ -730,13 +734,7 @@ function showDetail(id) {
               '<div style="width:'+wf+'%;min-width:2px;height:13px;background:'+colf+';border-radius:2px;transition:width .3s"></div>' +
               '<span style="font-size:10px;font-family:JetBrains Mono,monospace;color:'+colf+';font-weight:700">'+(v>=0?'+':'')+v.toFixed(2)+'%</span>' +
             '</div>' +
-            // Nifty bar
-            (n!=null ?
-              '<div style="display:flex;align-items:center;gap:4px">' +
-                '<div style="width:'+wn+'%;min-width:2px;height:9px;background:'+coln+';border-radius:2px;opacity:.7"></div>' +
-                '<span style="font-size:9px;font-family:JetBrains Mono,monospace;color:#64748b">'+(n>=0?'+':'')+n.toFixed(2)+'%</span>' +
-              '</div>'
-            : '') +
+
           '</div>' +
         '</div>';
       }).join('') + '</div>';
@@ -755,7 +753,7 @@ function showDetail(id) {
       ['Ann. Return', ann!=null?(ann>=0?'+':'')+ann.toFixed(2)+'%':'—'],
       ['3-Month', f.r3m!=null?(f.r3m>=0?'+':'')+f.r3m.toFixed(2)+'%':'N/A'],
       ['1-Month', f.r1m!=null?(f.r1m>=0?'+':'')+f.r1m.toFixed(2)+'%':'N/A'],
-      ['AUM (&#8377;Cr)', f.aum?f.aum.toLocaleString('en-IN'):'N/A'],
+
       ['TER', f.er?f.er+'%':'—'],
       ['Risk Level', f.risk?'L'+f.risk+' — '+RL[f.risk]:'—'],
       ['FM Experience', f.fmYrs?f.fmYrs+' yrs':'—'],
@@ -825,8 +823,15 @@ function buildHeatmap() {
   MONTHS.forEach(function(m){ t += '<th style="font-family:\'JetBrains Mono\',monospace;font-size:9.5px;color:var(--muted2);padding:12px 4px;text-align:center;background:#f0f4ff;border-bottom:1.5px solid var(--border);min-width:64px">'+m+'</th>'; });
   t += '<th style="font-family:\'JetBrains Mono\',monospace;font-size:9.5px;color:var(--indigo);padding:12px;text-align:right;background:#f0f4ff;border-bottom:1.5px solid var(--border);min-width:76px">SI Ret.</th></tr></thead><tbody>';
   t += '<tr style="background:#f8fafc;border-bottom:2px solid var(--border)"><td style="padding:10px 16px;font-family:\'JetBrains Mono\',monospace;font-size:11px;font-weight:700;color:var(--muted)">Nifty 50 TRI</td>';
-  MONTHS.forEach(function(m){ var v=NIFTY[m]; var c=hcol(v); t += '<td style="padding:4px 3px;text-align:center"><div class="hcell" style="background:'+c[0]+';color:'+c[1]+'">'+(v>=0?'+':'')+v.toFixed(2)+'%</div></td>'; });
+  
   t += '<td style="padding:10px 12px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-size:12px;font-weight:700;color:var(--muted)">—</td></tr>';
+    // Add Nifty 50 row if index data available
+  var nifty50 = INDICES['Nifty 50'];
+  if (nifty50 && Object.keys(nifty50.monthly || {}).length > 0) {
+    t += '<tr style="background:#f8fafc;border-bottom:2px solid var(--border)"><td style="padding:9px 16px;border-right:1px solid var(--border);position:sticky;left:0;background:#f8fafc;z-index:2"><div style="font-weight:600;font-size:12.5px">Nifty 50 TRI</div><div class="fp" style="background:#f1f5f9;color:#374151;margin-top:3px;display:inline-block">Benchmark</div></td>';
+    MONTHS.forEach(function(m){ var v=nifty50.monthly[m]; if(v==null){t+='<td><div class="hcell" style="background:#f1f5f9;color:#94a3b8">—</div></td>';return;} var c=hcol(v); t += '<td style="padding:4px 3px;text-align:center"><div class="hcell" style="background:'+c[0]+';color:'+c[1]+'">'+(v>=0?'+':'')+v.toFixed(2)+'%</div></td>'; });
+    t += '<td style="padding:9px 12px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-size:12px">—</td></tr>';
+  }
   live.forEach(function(f) {
     var p = CL[f.cat] || CL.hybrid;
     t += '<tr style="border-bottom:1px solid var(--borders)"><td style="padding:9px 16px;border-right:1px solid var(--borders)"><div style="font-weight:600;font-size:12.5px">'+f.name+'</div><span class="fp" style="background:'+p[0]+';color:'+p[1]+';margin-top:3px;display:inline-block">'+p[2]+'</span></td>';
@@ -886,7 +891,7 @@ function toolTab(t, btn) {
 function buildScreener() {
   document.getElementById('tc-screener').innerHTML =
     '<div class="tfilters">'+
-    '<div class="fc"><p class="flbl">Min AUM</p><p class="fval" id="fv-aum">&ge; &#8377;'+TS.minAum+' Cr</p><input type="range" min="0" max="3000" step="50" value="'+TS.minAum+'" oninput="TS.minAum=+this.value;document.getElementById(\'fv-aum\').innerHTML=\'&ge; &#8377;\'+this.value+\' Cr\';renderScreened()"/></div>'+
+    
     '<div class="fc"><p class="flbl">Max TER</p><p class="fval" id="fv-er">&le; '+TS.maxEr.toFixed(2)+'%</p><input type="range" min="1.5" max="2.0" step="0.05" value="'+TS.maxEr+'" oninput="TS.maxEr=+this.value;document.getElementById(\'fv-er\').innerHTML=\'&le; \'+parseFloat(this.value).toFixed(2)+\'%\';renderScreened()"/></div>'+
     '<div class="fc"><p class="flbl">Max Risk</p><p class="fval" id="fv-risk">Up to L'+TS.maxRisk+'</p><input type="range" min="1" max="5" step="1" value="'+TS.maxRisk+'" oninput="TS.maxRisk=+this.value;document.getElementById(\'fv-risk\').textContent=\'Up to L\'+this.value;renderScreened()"/></div>'+
     '<div class="fc"><p class="flbl">Category</p><p class="fval">'+(TS.selCat==='all'?'All':(CL[TS.selCat]?CL[TS.selCat][2]:TS.selCat))+'</p><select onchange="TS.selCat=this.value;renderScreened()" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px"><option value="all">All</option>'+Object.entries(CL).map(function(e){ return '<option value="'+e[0]+'"'+(TS.selCat===e[0]?' selected':'')+'>'+e[1][2]+'</option>'; }).join('')+'</select></div>'+
@@ -906,7 +911,7 @@ function renderScreened() {
       var ann = annualised(f.rsi, f.inception);
       return '<div class="si-item" onclick="showDetail(\''+f.id+'\')">'+
         '<div style="flex:1;min-width:150px"><p style="font-weight:700;font-size:14px;margin:0 0 2px">'+f.name+'</p><p style="font-size:11.5px;color:var(--muted2);margin:0 0 5px">'+f.amc+'</p><span class="fp" style="background:'+p[0]+';color:'+p[1]+'">'+p[2]+'</span></div>'+
-        [['NAV',f.nav?'&#8377;'+f.nav.toFixed(f.navBase?1:4):'—','var(--ink)'],['1M',f.r1m!=null?(f.r1m>=0?'+':'')+f.r1m.toFixed(2)+'%':'N/A',f.r1m==null?'var(--muted2)':f.r1m>=0?'var(--pos)':'var(--neg)'],['SI',f.rsi!=null?(f.rsi>=0?'+':'')+f.rsi.toFixed(2)+'%':'N/A',f.rsi==null?'var(--muted2)':f.rsi>=0?'var(--pos)':'var(--neg)'],['Ann.',ann!=null?(ann>=0?'+':'')+ann.toFixed(2)+'%':'N/A',ann==null?'var(--muted2)':ann>=0?'var(--pos)':'var(--neg)'],['AUM',f.aum?'&#8377;'+f.aum.toLocaleString('en-IN')+' Cr':'N/A','var(--ink)']].map(function(m){ return '<div style="text-align:center;min-width:56px"><p style="font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);margin:0 0 3px">'+m[0]+'</p><p style="font-family:\'JetBrains Mono\',monospace;font-size:13px;font-weight:700;color:'+m[2]+';margin:0">'+m[1]+'</p></div>'; }).join('')+
+        [['NAV',f.nav?'&#8377;'+f.nav.toFixed(f.navBase?1:4):'—','var(--ink)'],['1M',f.r1m!=null?(f.r1m>=0?'+':'')+f.r1m.toFixed(2)+'%':'N/A',f.r1m==null?'var(--muted2)':f.r1m>=0?'var(--pos)':'var(--neg)'],['SI',f.rsi!=null?(f.rsi>=0?'+':'')+f.rsi.toFixed(2)+'%':'N/A',f.rsi==null?'var(--muted2)':f.rsi>=0?'var(--pos)':'var(--neg)'],['Ann.',ann!=null?(ann>=0?'+':'')+ann.toFixed(2)+'%':'N/A',ann==null?'var(--muted2)':ann>=0?'var(--pos)':'var(--neg)'],].map(function(m){ return '<div style="text-align:center;min-width:56px"><p style="font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);margin:0 0 3px">'+m[0]+'</p><p style="font-family:\'JetBrains Mono\',monospace;font-size:13px;font-weight:700;color:'+m[2]+';margin:0">'+m[1]+'</p></div>'; }).join('')+
         '<div style="text-align:center">'+rdots(f.risk)+'</div></div>';
     }).join('');
 }
@@ -932,27 +937,7 @@ var CC_CATS = [
   ['sector','Sector Rotation','#9333ea']
 ];
 
-// ── COMPARATOR SERIES ──
-// Monthly returns (%) per month key. Nifty 50 is verified.
-// To add data for the others: fill in the series objects below.
-var COMPARATORS = {
-  nifty50:    { label:'Nifty 50',                t:'index', series:NIFTY },
-  nifty500:   { label:'Nifty 500',               t:'index', series:{} },
-  midsmall400:{ label:'Nifty MidSmallcap 400',   t:'index', series:{} },
-  baf:        { label:'Balanced Advantage Funds (median)', t:'mf', series:{} },
-  eqsavings:  { label:'Equity Savings Funds (median)',     t:'mf', series:{} },
-  arbitrage:  { label:'Arbitrage Funds (median)',          t:'mf', series:{} },
-  multiasset: { label:'Multi Asset Funds (median)',        t:'mf', series:{} }
-};
-
-// Which comparators apply to each SIF category
-var CC_MAP = {
-  hybrid: ['baf','eqsavings','arbitrage'],
-  equity: ['nifty50','nifty500'],
-  extop:  ['midsmall400'],
-  asset:  ['multiasset'],
-  sector: ['nifty500']
-};
+// No external index comparators - tool shows SIF categories vs each other
 
 function ccSelect(cat) {
   CC_SEL = cat;
@@ -976,153 +961,89 @@ function renderCatCompare() {
   var catDef = CC_CATS.find(function(c){ return c[0]===CC_SEL; });
   var color = catDef[2];
 
-  // Median series of selected SIF category
-  var funds = FUNDS.filter(function(f){ return f.cat===CC_SEL && !f.nfo && f.monthly; });
-  var catSeries = {};
-  MONTHS.forEach(function(m) {
-    var vals = funds.map(function(f){ return f.monthly[m]; }).filter(function(v){ return v!=null; });
-    catSeries[m] = vals.length ? ccMedian(vals) : null;
-  });
-  var catSI = ccCumSI(catSeries);
+  // Build median monthly series for selected SIF category from live fund data
+  function catMedianSeries(catCode) {
+    var catFunds = FUNDS.filter(function(f){ return f.cat===catCode && !f.nfo && f.monthly; });
+    var series = {};
+    MONTHS.forEach(function(m) {
+      var vals = catFunds.map(function(f){ return f.monthly[m]; }).filter(function(v){ return v!=null; });
+      series[m] = vals.length ? ccMedian(vals) : null;
+    });
+    var sis = catFunds.map(function(f){ return f.rsi; }).filter(function(v){ return v!=null; });
+    return { series:series, si: sis.length ? ccMedian(sis) : null, n: catFunds.length };
+  }
 
-  var comps = CC_MAP[CC_SEL].map(function(k){ return { key:k, def:COMPARATORS[k] }; });
+  var selected = catMedianSeries(CC_SEL);
+  var benchmarks = (CAT_BENCHMARK[CC_SEL] || []).map(function(name) {
+    var idx = INDICES[name];
+    return idx ? { name:name, label:idx.label, series:idx.monthly || {}, si:ccCumSI(idx.monthly || {}) } : null;
+  }).filter(Boolean);
 
   var t = '';
 
-  // ── Summary cards ──
-  t += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:22px">';
+  // ── Summary comparison cards ──
+  t += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:22px">';
+  
   // SIF category card
   t += '<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid '+color+';border-radius:10px;padding:16px">'+
-    '<p style="font-size:10px;font-family:\'JetBrains Mono\',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px">'+catDef[1]+' (SIF median)</p>'+
-    '<p style="font-family:\'Sora\',sans-serif;font-size:24px;font-weight:800;margin:0;color:'+(catSI>=0?'var(--pos)':'var(--neg)')+'">'+(catSI!=null?(catSI>=0?'+':'')+catSI.toFixed(2)+'%':'—')+'</p>'+
-    '<p style="font-size:11px;color:var(--ink);margin:4px 0 0">cumulative · '+funds.length+' fund'+(funds.length!==1?'s':'')+'</p></div>';
-  // Comparator cards
-  comps.forEach(function(c) {
-    var si = ccCumSI(c.def.series);
-    var has = si != null;
-    var beat = has && catSI != null && catSI > si;
+    '<p style="font-size:10px;font-family:\'JetBrains Mono\',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px">'+catDef[1]+' SIFs (median)</p>'+
+    '<p style="font-family:\'Sora\',sans-serif;font-size:24px;font-weight:800;margin:0;color:'+(selected.si!=null?(selected.si>=0?'var(--pos)':'var(--neg)'):'var(--muted2)')+'">'+(selected.si!=null?(selected.si>=0?'+':'')+selected.si.toFixed(2)+'%':'—')+'</p>'+
+    '<p style="font-size:11px;color:var(--ink);margin:4px 0 0">SI return · '+selected.n+' fund'+(selected.n!==1?'s':'')+'</p></div>';
+
+  // Benchmark cards (live from AMFI index fund NAVs)
+  benchmarks.forEach(function(b) {
+    var ahead = selected.si != null && b.si != null && selected.si > b.si;
+    var hasData = b.si != null;
     t += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">'+
-      '<p style="font-size:10px;font-family:\'JetBrains Mono\',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px">'+c.def.label+'</p>'+
-      '<p style="font-family:\'Sora\',sans-serif;font-size:24px;font-weight:800;margin:0;color:'+(has?(si>=0?'var(--pos)':'var(--neg)'):'var(--muted2)')+'">'+(has?(si>=0?'+':'')+si.toFixed(2)+'%':'—')+'</p>'+
-      (has && catSI!=null
-        ? '<p style="font-size:10.5px;margin:6px 0 0;font-weight:600;color:'+(beat?'var(--pos)':'var(--neg)')+'">SIF category '+(beat?'&#9650; ahead by '+(catSI-si).toFixed(2):'&#9660; behind by '+(si-catSI).toFixed(2))+' pts</p>'
-        : '<p style="font-size:10.5px;margin:6px 0 0;color:var(--muted2)">data being added</p>')+
-      '</div>';
+      '<p style="font-size:10px;font-family:\'JetBrains Mono\',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px">'+b.label+'</p>'+
+      '<p style="font-family:\'Sora\',sans-serif;font-size:24px;font-weight:800;margin:0;color:'+(hasData?(b.si>=0?'var(--pos)':'var(--neg)'):'var(--muted2)')+'">'+(hasData?(b.si>=0?'+':'')+b.si.toFixed(2)+'%':'Accumulating…')+'</p>'+
+      '<p style="font-size:11px;color:var(--ink);margin:4px 0 0">benchmark SI</p>'+
+      (hasData && selected.si!=null ? '<p style="font-size:10.5px;margin:6px 0 0;font-weight:600;color:'+(ahead?'var(--pos)':'var(--neg)')+'">SIFs '+(ahead?'▲ ahead by ':'▼ behind by ')+Math.abs(selected.si-b.si).toFixed(2)+'pts</p>' : '')+
+    '</div>';
   });
+
+  // If no benchmarks have data yet, show all SIF categories vs each other
+  if (benchmarks.length === 0) {
+    CC_CATS.filter(function(c){ return c[0]!==CC_SEL; }).forEach(function(c) {
+      var other = catMedianSeries(c[0]);
+      if (other.n === 0) return;
+      var ahead = selected.si != null && other.si != null && selected.si > other.si;
+      t += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">'+
+        '<p style="font-size:10px;font-family:\'JetBrains Mono\',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px">'+c[1]+' SIFs</p>'+
+        '<p style="font-family:\'Sora\',sans-serif;font-size:24px;font-weight:800;margin:0;color:'+(other.si>=0?'var(--pos)':'var(--neg)')+'">'+(other.si!=null?(other.si>=0?'+':'')+other.si.toFixed(2)+'%':'—')+'</p>'+
+        '<p style="font-size:11px;color:var(--ink);margin:4px 0 0">'+other.n+' fund'+(other.n!==1?'s':'')+'</p></div>';
+    });
+  }
   t += '</div>';
 
-  // ── Monthly table ──
+  // ── Monthly comparison table ──
   t += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow-x:auto;margin-bottom:14px">';
-  t += '<table style="width:100%;border-collapse:collapse;min-width:680px">';
-  t += '<thead><tr><th style="font-family:\'JetBrains Mono\',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);text-align:left;padding:12px 16px;border-bottom:1.5px solid var(--border);background:#f0f4ff">Series</th>';
+  t += '<table style="width:100%;border-collapse:collapse;min-width:640px">';
+  t += '<thead><tr>'+
+    '<th style="font-family:\'JetBrains Mono\',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);text-align:left;padding:12px 16px;border-bottom:1.5px solid var(--border);background:#f0f4ff">Series</th>';
   MONTHS.forEach(function(m){ t += '<th style="font-family:\'JetBrains Mono\',monospace;font-size:9.5px;color:var(--ink);padding:12px 4px;text-align:center;background:#f0f4ff;border-bottom:1.5px solid var(--border);min-width:60px">'+m+'</th>'; });
-  t += '<th style="font-family:\'JetBrains Mono\',monospace;font-size:9.5px;color:var(--ink);padding:12px 10px;text-align:right;background:#f0f4ff;border-bottom:1.5px solid var(--border)">Cumul.</th></tr></thead><tbody>';
+  t += '<th style="font-family:\'JetBrains Mono\',monospace;font-size:9.5px;color:var(--ink);padding:12px 10px;text-align:right;background:#f0f4ff;border-bottom:1.5px solid var(--border)">SI</th></tr></thead><tbody>';
 
-  function row(label, series, bold, swatch) {
-    var si = ccCumSI(series);
-    var r = '<tr style="border-bottom:1px solid var(--borders)'+(bold?';background:#f8fafc':'')+'"><td style="padding:9px 16px;font-weight:'+(bold?'700':'600')+';font-size:12.5px">'+(swatch?'<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+swatch+';margin-right:7px;vertical-align:middle"></span>':'')+label+'</td>';
+  function tableRow(label, series, si, bold, swatch) {
+    var r = '<tr style="border-bottom:1px solid var(--borders)'+(bold?';background:#f8faff':'')+'">';
+    r += '<td style="padding:9px 16px">'+(swatch?'<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+swatch+';margin-right:7px;vertical-align:middle"></span>':'')+
+      '<span style="font-weight:'+(bold?700:600)+';font-size:12.5px">'+label+'</span></td>';
     MONTHS.forEach(function(m) {
-      var v = series[m];
-      var c = hcol(v);
-      r += '<td style="padding:4px 3px;text-align:center">'+(v!=null?'<div class="hcell" style="background:'+c[0]+';color:'+c[1]+'">'+(v>=0?'+':'')+v.toFixed(2)+'%</div>':'<div class="hcell" style="background:#f1f5f9;color:#64748b">—</div>')+'</td>';
+      var v = series[m]; var cl = hcol(v);
+      r += '<td style="padding:4px 3px;text-align:center">'+(v!=null?'<div class="hcell" style="background:'+cl[0]+';color:'+cl[1]+'">'+(v>=0?'+':'')+v.toFixed(2)+'%</div>':'<div class="hcell" style="background:#f1f5f9;color:#64748b">—</div>')+'</td>';
     });
     r += '<td style="padding:9px 12px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-size:12px;font-weight:700;color:'+(si!=null?(si>=0?'var(--pos)':'var(--neg)'):'var(--muted2)')+'">'+(si!=null?(si>=0?'+':'')+si.toFixed(2)+'%':'—')+'</td></tr>';
     return r;
   }
 
-  t += row(catDef[1]+' (SIF median)', catSeries, true, color);
-  comps.forEach(function(c) { t += row(c.def.label, c.def.series, false, null); });
+  t += tableRow(catDef[1]+' SIFs (median)', selected.series, selected.si, true, color);
+  benchmarks.forEach(function(b) {
+    t += tableRow(b.label, b.series, b.si, false, '#94a3b8');
+  });
+
   t += '</tbody></table></div>';
-
-  t += '<p class="tfoot">SIF row = median of category fund monthly returns. Comparator rows: index returns / MF category medians. Cumul. = compounded across available months.</p>';
-
+  t += '<p class="tfoot">SIF category median vs live benchmark index fund NAVs — all fetched automatically from AMFI. Benchmark data accumulates as months pass.</p>';
   document.getElementById('cc-body').innerHTML = t;
 }
 
-function buildFaq() {
-  var faqs = [
-    ['What is a Specialised Investment Fund (SIF)?','A SIF is a SEBI-regulated investment category operational from 1 April 2025, sitting between mutual funds and PMS. It allows AMCs to run long-short strategies using derivatives up to 25% unhedged short exposure within the mutual fund framework. Minimum investment: &#8377;10 lakh per PAN per AMC.'],
-    ['Why are there no 6-month or 1-year returns?','The oldest SIF launched 8 October 2025 — only ~8 months old as of June 2026. SEBI requires absolute returns for funds under 1 year old. We show N/A rather than mislead. 1-year returns will appear from October 2026.'],
-    ['What is the Annualised Return column?','Annualised return (CAGR) is shown only for funds that have 12+ months of history. For all others it shows N/A. Since the category launched October 2025, most funds will populate this column from October 2026 onwards. Only qSIF Equity (launched Oct 2025) may qualify first.'],
-    ['Why are returns shown as absolute, not annualised?','Annualising sub-12-month returns produces misleading numbers. A 3-month +3% return annualises to +12%+, which is meaningless as a forward signal. Once funds complete 12 months, CAGR is shown.'],
-    ['What do the Risk Levels (L1-L5) mean?','L1 = Conservative; L2 = Low-Moderate; L3 = Moderate; L4 = Moderate-High; L5 = High (full equity long-short, highest beta and alpha target).'],
-    ['How does SIF NAV work?','SIF NAVs are declared once per business day after market close (typically 9-11 PM IST) by AMFI. There is no intraday NAV.'],
-    ['How do I invest through ValuMonk?','ValuMonk is an AMFI-registered MFD (ARN 283881). Your advisor conducts a suitability assessment, assists with KYC and documentation, and facilitates the investment. Book via Talk to Us.'],
-    ['Hybrid vs Equity Long-Short — how do I choose?','Hybrid SIFs target capital preservation (Arudha Hybrid fell &minus;0.12% in March 2026 vs Nifty &minus;11.3%). Equity L-S SIFs target higher alpha at higher volatility. Choose Hybrid for 1-2 year horizon; Equity L-S for 3+ years.']
-  ];
-  document.getElementById('faqlist').innerHTML = faqs.map(function(f,i) {
-    return '<div class="faqitem"><button class="faqbtn" onclick="tFaq('+i+')"><span class="faqq">'+f[0]+'</span><span class="faqi" id="fi'+i+'">+</span></button><div class="faqa" id="fa'+i+'">'+f[1]+'</div></div>';
-  }).join('');
-}
-function tFaq(i) {
-  document.getElementById('fa'+i).classList.toggle('on');
-  document.getElementById('fi'+i).classList.toggle('on');
-}
-function addCTA(id) {
-  var el = document.getElementById(id);
-  if (!el) return;
-  var w = document.createElement('div');
-  w.className = 'wrap';
-  w.innerHTML = '<div class="ctab"><div><h3 style="font-family:\'Sora\',sans-serif;font-weight:800;font-size:clamp(20px,3vw,30px);color:#f8fafc;margin:0 0 6px;letter-spacing:-.02em">Ready to explore SIFs? <em style="color:#86efac;font-style:normal">Let\'s talk.</em></h3><p style="font-size:13.5px;color:rgba(255,255,255,.45);margin:0">ValuMonk advisors assess suitability and guide you through the full process.</p></div><div class="ctabtns"><a href="https://valumonk.com/contact/" class="ctabw">Book a Free Review</a><a href="https://valumonk.investwell.app/app/#/login" class="ctabo">Client Login</a></div></div><div class="disc"><p><strong>Data source:</strong> NAVs fetched live from AMFI (updated daily after market close). Returns and AUM data refreshed periodically from AMFI. Returns are absolute (not annualised) per SEBI requirements for funds under 12 months. Annualised CAGR shown only for funds with 12M+ history. 6M/1Y = N/A — category launched October 2025. AUM from AMFI April 2026 disclosure. <strong>Not investment advice.</strong> SIFs carry market risk including potential loss of capital. Min &#8377;10 lakh per PAN per AMC. Past performance does not guarantee future results. Read all Scheme Information Documents carefully.</p></div>';
-  el.appendChild(w);
-}
-
-
-
-
-// ── LOAD DATA FROM SERVER ──
-function loadData() {
-  fetch('/api/data')
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      FUNDS  = d.funds;
-      MONTHS = d.months;
-      NIFTY  = d.nifty;
-
-      // Format date
-      var navDate = d.navDate || '';
-      var dateDisp = navDate;
-      if (navDate) {
-        var dp = navDate.split('-');
-        if (dp.length === 3 && isNaN(parseInt(dp[1]))) {
-          dateDisp = parseInt(dp[0]) + ' ' + dp[1] + ' ' + dp[2];
-        }
-      }
-
-      // Show live badge
-      var badge = document.getElementById('live-badge');
-      if (badge) {
-        badge.innerHTML =
-          '<span style="display:inline-flex;align-items:center;gap:5px;' +
-          'background:rgba(6,175,80,.12);border:1px solid rgba(6,175,80,.28);' +
-          'border-radius:100px;padding:3px 10px">' +
-          '<span style="width:5px;height:5px;border-radius:50%;background:#4ade80;' +
-          'flex-shrink:0;animation:pulse 2s infinite"></span>' +
-          '<span style="font-family:\'JetBrains Mono\',monospace;font-size:8.5px;' +
-          'font-weight:700;color:#4ade80;letter-spacing:.1em">LIVE</span>' +
-          '<span style="font-family:\'JetBrains Mono\',monospace;font-size:8.5px;' +
-          'color:rgba(255,255,255,.35);">' + dateDisp.toUpperCase() + '</span>' +
-          '</span>';
-      }
-
-      buildTicker();
-      buildStats();
-      buildChips();
-      buildThead();
-      renderRows();
-      ['v-tracker','v-heatmap','v-compare','v-tools','v-faq'].forEach(addCTA);
-      console.log('[ValuMonk] Loaded ' + FUNDS.length + ' funds · NAV: ' + dateDisp);
-    })
-    .catch(function(err) {
-      console.error('[ValuMonk] Data load failed:', err);
-    });
-}
-
-window.onload = function() {
-  loadData();
-  setInterval(loadData, 1800000); // refresh every 30 min
-};
-
-</script>
-</body>
-</html>
+>
