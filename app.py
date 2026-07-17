@@ -723,7 +723,7 @@ def _annualised(rsi, inception_str):
 
 
 def refresh():
-    global _live_navs, _nav_date, _last_updated, ISIN_MAP
+    global _live_navs, _index_navs, _nav_date, _last_updated, ISIN_MAP
 
     log.info("Refreshing AMFI data...")
     try:
