@@ -663,8 +663,16 @@ def _fetch_amfi():
         "Accept": "application/json",
         "Referer": "https://www.amfiindia.com/sif/latest-nav",
     })
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.loads(r.read().decode("utf-8"))
+    # Retry up to 3 times with increasing timeout
+    for attempt, timeout in enumerate([30, 45, 60]):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except Exception as e:
+            if attempt == 2:
+                raise
+            log.warning(f"AMFI fetch attempt {attempt+1} failed: {e}, retrying...")
+            time.sleep(5)
 
 
 def _map_cat(cat_str):
@@ -774,7 +782,7 @@ def refresh():
         nav_req = urllib.request.Request(nav_url, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         })
-        with urllib.request.urlopen(nav_req, timeout=20) as nr:
+        with urllib.request.urlopen(nav_req, timeout=60) as nr:
             nav_text = nr.read().decode('utf-8', errors='ignore')
         
         # Build ISIN -> NAV lookup from NAVAll.txt
