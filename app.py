@@ -19,7 +19,9 @@ app = Flask(__name__)
 # Format: "Mon-YY": return_percent
 # ================================================================
 
-NIFTY = {'Oct-25': -6.2, 'Nov-25': -0.3, 'Dec-25': -2.0, 'Jan-26': -0.8, 'Feb-26': -5.9, 'Mar-26': -11.3, 'Apr-26': 7.49, 'May-26': -1.72, 'Jun-26': 1.67}
+# NIFTY removed - not maintained manually
+# Months list is derived automatically from the first fund's monthly data
+NIFTY = {}
 
 # ================================================================
 # ISIN MAP - Regular Growth plan ISIN for each fund
@@ -27,6 +29,29 @@ NIFTY = {'Oct-25': -6.2, 'Nov-25': -0.3, 'Dec-25': -2.0, 'Jan-26': -0.8, 'Feb-26
 # ================================================================
 
 ISIN_MAP = {'altiva-hls': 'INF754K30052', 'qsif-hls': 'INF966L30084', 'magnum-hls': 'INF200K30015', 'arudha-hls': 'INF194K30010', 'apex-hls': 'INF209K30040', 'titanium-hls': 'INF277K30013', 'isif-hls': 'INF109K30018', 'qsif-els': 'INF966L30027', 'dyna-els': 'INF579M30018', 'arudha-els': 'INF194K30358', 'sapphire-els': 'INF090I30014', 'diviniti-els': 'INF00XX30019', 'qsif-extop': 'INF966L30183', 'isif-extop': 'INF109K30034', 'dyna-aaa': 'INF579M30075', 'qsif-aaa': 'INF966L30217', 'qsif-sr': 'INF966L30308'}
+
+# ================================================================
+# INDEX FUND ISINs - fetched from AMFI NAVAll.txt automatically
+# Used to compute benchmark monthly returns with zero manual work
+# Source: AMFI NAVAll.txt (Direct Growth plans of index funds)
+# ================================================================
+
+INDEX_FUNDS = {
+    "Nifty 50":           {"isin": "INF204KB16I2", "label": "Nifty 50 (Index Fund NAV)"},
+    "Nifty 500":          {"isin": "INF209KB12L7", "label": "Nifty 500 (Index Fund NAV)"},
+    "Nifty MidSmall 400": {"isin": "INF959L01DC0", "label": "Nifty MidSmallcap 400"},
+    "Balanced Advantage": {"isin": "INF179KB1HY0", "label": "Balanced Advantage (HDFC)"},
+    "Multi Asset":        {"isin": "INF247L01AA0", "label": "Multi Asset (Motilal)"},
+}
+
+# Which index to compare with each SIF category
+CAT_BENCHMARK = {
+    "hybrid": ["Nifty 50", "Balanced Advantage"],
+    "equity": ["Nifty 50", "Nifty 500"],
+    "extop":  ["Nifty MidSmall 400"],
+    "asset":  ["Multi Asset"],
+    "sector": ["Nifty 500"],
+}
 
 # ================================================================
 # CATEGORY LABELS AND COMPARABLE MF DEFAULTS
@@ -80,7 +105,7 @@ FUND_REGISTRY = {
         "compMF": "Between Arbitrage & Equity Savings",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Oct-25": 0.09, "Nov-25": 1.01, "Dec-25": 1.71, "Jan-26": 0.13, "Feb-26": 0.71, "Mar-26": -1.53, "Apr-26": 3.17, "May-26": 1.14, "Jun-26": None},
+        "monthly": {"Oct-25": 0.09, "Nov-25": 1.01, "Dec-25": 1.71, "Jan-26": 0.13, "Feb-26": 0.71, "Mar-26": -1.53, "Apr-26": 3.17, "May-26": 1.14, "Jun-26": 0.99},
         "rsi": 6.54,
         "r1m": 1.14,
         "r3m": 2.75,
@@ -108,7 +133,7 @@ FUND_REGISTRY = {
         "compMF": "Balanced Advantage Fund",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Oct-25": 0.46, "Nov-25": -0.38, "Dec-25": -0.08, "Jan-26": -1.29, "Feb-26": 0.48, "Mar-26": -0.91, "Apr-26": 6.94, "May-26": -1.02, "Jun-26": None},
+        "monthly": {"Oct-25": 0.46, "Nov-25": -0.38, "Dec-25": -0.08, "Jan-26": -1.29, "Feb-26": 0.48, "Mar-26": -0.91, "Apr-26": 6.94, "May-26": -1.02, "Jun-26": 1.29},
         "rsi": 4.02,
         "r1m": -1.02,
         "r3m": 4.88,
@@ -136,7 +161,7 @@ FUND_REGISTRY = {
         "compMF": "Between Arbitrage & Equity Savings",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Oct-25": -0.34, "Nov-25": 1.24, "Dec-25": 0.95, "Jan-26": -0.83, "Feb-26": 0.77, "Mar-26": -2.16, "Apr-26": 2.28, "May-26": 0.68, "Jun-26": None},
+        "monthly": {"Oct-25": -0.34, "Nov-25": 1.24, "Dec-25": 0.95, "Jan-26": -0.83, "Feb-26": 0.77, "Mar-26": -2.16, "Apr-26": 2.28, "May-26": 0.68, "Jun-26": 1.36},
         "rsi": 2.55,
         "r1m": 0.68,
         "r3m": 0.74,
@@ -164,7 +189,7 @@ FUND_REGISTRY = {
         "compMF": "Balanced Advantage Fund",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Feb-26": 0.45, "Mar-26": 0.12, "Apr-26": 0.38, "May-26": 0.22, "Jun-26": None},
+        "monthly": {"Feb-26": 0.45, "Mar-26": 0.12, "Apr-26": 0.38, "May-26": 0.22, "Jun-26": 0.78},
         "rsi": 1.17,
         "r1m": 0.22,
         "r3m": 0.71,
@@ -192,7 +217,7 @@ FUND_REGISTRY = {
         "compMF": "Balanced Advantage Fund",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Mar-26": 0.0, "Apr-26": 0.4, "May-26": 0.5, "Jun-26": None},
+        "monthly": {"Mar-26": 0.0, "Apr-26": 0.4, "May-26": 0.5, "Jun-26": 1.25},
         "rsi": 0.9,
         "r1m": 0.5,
         "r3m": None,
@@ -220,7 +245,7 @@ FUND_REGISTRY = {
         "compMF": "Balanced Advantage Fund",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Dec-25": 0.64, "Jan-26": -1.02, "Feb-26": 1.42, "Mar-26": -6.87, "Apr-26": 5.51, "May-26": 0.55, "Jun-26": None},
+        "monthly": {"Dec-25": 0.64, "Jan-26": -1.02, "Feb-26": 1.42, "Mar-26": -6.87, "Apr-26": 5.51, "May-26": 0.55, "Jun-26": 2.05},
         "rsi": -0.19,
         "r1m": 0.55,
         "r3m": -1.2,
@@ -248,7 +273,7 @@ FUND_REGISTRY = {
         "compMF": "Balanced Advantage Fund",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Feb-26": -0.59, "Mar-26": -7.31, "Apr-26": 7.45, "May-26": 0.02, "Jun-26": None},
+        "monthly": {"Feb-26": -0.59, "Mar-26": -7.31, "Apr-26": 7.45, "May-26": 0.02, "Jun-26": 2.86},
         "rsi": -0.97,
         "r1m": 0.02,
         "r3m": -0.38,
@@ -276,7 +301,7 @@ FUND_REGISTRY = {
         "compMF": "Flexicap Funds",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Oct-25": 1.36, "Nov-25": -0.23, "Dec-25": -0.58, "Jan-26": -3.32, "Feb-26": 0.82, "Mar-26": -8.95, "Apr-26": 13.68, "May-26": 2.07, "Jun-26": None},
+        "monthly": {"Oct-25": 1.36, "Nov-25": -0.23, "Dec-25": -0.58, "Jan-26": -3.32, "Feb-26": 0.82, "Mar-26": -8.95, "Apr-26": 13.68, "May-26": 2.07, "Jun-26": 2.81},
         "rsi": 3.54,
         "r1m": 2.07,
         "r3m": 5.65,
@@ -304,7 +329,7 @@ FUND_REGISTRY = {
         "compMF": "Flexicap Funds",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Feb-26": 0.0, "Mar-26": -4.39, "Apr-26": 6.59, "May-26": 1.29, "Jun-26": None},
+        "monthly": {"Feb-26": 0.0, "Mar-26": -4.39, "Apr-26": 6.59, "May-26": 1.29, "Jun-26": 2.61},
         "rsi": 3.23,
         "r1m": 1.29,
         "r3m": 3.23,
@@ -322,7 +347,7 @@ FUND_REGISTRY = {
         "inceptionDate": "30 Mar 2026",
         "bench": "Nifty 500 TRI",
         "er": 1.7,
-        "aum": 0,
+        "aum": 45,
         "riskLevel": 5,
         "exitLoad": "0.5% within 1 month",
         "liq": "Daily purchase; daily redemption",
@@ -332,7 +357,7 @@ FUND_REGISTRY = {
         "compMF": "Flexicap Funds",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Mar-26": 0.01, "Apr-26": 3.42, "May-26": -0.85, "Jun-26": None},
+        "monthly": {"Mar-26": 0.01, "Apr-26": 3.42, "May-26": -0.85, "Jun-26": 2.25},
         "rsi": 2.55,
         "r1m": -0.85,
         "r3m": None,
@@ -360,7 +385,7 @@ FUND_REGISTRY = {
         "compMF": "Flexicap Funds",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Apr-26": 0.0, "May-26": -0.83, "Jun-26": None},
+        "monthly": {"Apr-26": 0.0, "May-26": -0.83, "Jun-26": 1.9},
         "rsi": -0.83,
         "r1m": -0.83,
         "r3m": None,
@@ -388,7 +413,7 @@ FUND_REGISTRY = {
         "compMF": "Flexicap Funds",
         "nfo": False,
         "navBase": True,
-        "monthly": {"Dec-25": 0.25, "Jan-26": -1.23, "Feb-26": -1.37, "Mar-26": -2.99, "Apr-26": 0.71, "May-26": -3.92, "Jun-26": None},
+        "monthly": {"Dec-25": 0.25, "Jan-26": -1.23, "Feb-26": -1.37, "Mar-26": -2.99, "Apr-26": 0.71, "May-26": -3.92, "Jun-26": 2.8},
         "rsi": -8.31,
         "r1m": -3.92,
         "r3m": -6.13,
@@ -416,7 +441,7 @@ FUND_REGISTRY = {
         "compMF": "Small & Midcap Funds",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Nov-25": 0.01, "Dec-25": -1.49, "Jan-26": -4.69, "Feb-26": -0.9, "Mar-26": -7.6, "Apr-26": 15.38, "May-26": 1.45, "Jun-26": None},
+        "monthly": {"Nov-25": 0.01, "Dec-25": -1.49, "Jan-26": -4.69, "Feb-26": -0.9, "Mar-26": -7.6, "Apr-26": 15.38, "May-26": 1.45, "Jun-26": 3.49},
         "rsi": 0.66,
         "r1m": 1.45,
         "r3m": 8.17,
@@ -444,7 +469,7 @@ FUND_REGISTRY = {
         "compMF": "Small & Midcap Funds",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Feb-26": -1.2, "Mar-26": -8.61, "Apr-26": 8.87, "May-26": 1.32, "Jun-26": None},
+        "monthly": {"Feb-26": -1.2, "Mar-26": -8.61, "Apr-26": 8.87, "May-26": 1.32, "Jun-26": 2.03},
         "rsi": -0.4,
         "r1m": 1.32,
         "r3m": 0.81,
@@ -462,7 +487,7 @@ FUND_REGISTRY = {
         "inceptionDate": "30 Mar 2026",
         "bench": "Composite: Nifty 50 + CRISIL Short-Term + Gold",
         "er": 1.8,
-        "aum": 0,
+        "aum": 32,
         "riskLevel": 3,
         "exitLoad": "0.5% within 3 months",
         "liq": "Mondays only; 7 working days notice",
@@ -472,7 +497,7 @@ FUND_REGISTRY = {
         "compMF": "Multi Asset Funds",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Mar-26": 0.01, "Apr-26": 1.02, "May-26": 0.58, "Jun-26": None},
+        "monthly": {"Mar-26": 0.01, "Apr-26": 1.02, "May-26": 0.58, "Jun-26": 1.36},
         "rsi": 1.62,
         "r1m": 0.58,
         "r3m": None,
@@ -490,7 +515,7 @@ FUND_REGISTRY = {
         "inceptionDate": "24 Apr 2026",
         "bench": "Composite multi-asset",
         "er": 1.95,
-        "aum": 0,
+        "aum": 89,
         "riskLevel": 3,
         "exitLoad": "1% within 15 days",
         "liq": "Daily (T+3)",
@@ -500,7 +525,7 @@ FUND_REGISTRY = {
         "compMF": "Multi Asset Funds",
         "nfo": False,
         "navBase": False,
-        "monthly": {"Apr-26": -0.04, "May-26": 2.77, "Jun-26": None},
+        "monthly": {"Apr-26": -0.04, "May-26": 2.77, "Jun-26": 1.66},
         "rsi": 2.73,
         "r1m": 2.77,
         "r3m": None,
@@ -518,7 +543,7 @@ FUND_REGISTRY = {
         "inceptionDate": "6 May 2026",
         "bench": "Nifty 500 TRI",
         "er": 2.0,
-        "aum": 0,
+        "aum": 28,
         "riskLevel": 5,
         "exitLoad": "1% within 15 days",
         "liq": "Daily (T+3)",
@@ -528,7 +553,7 @@ FUND_REGISTRY = {
         "compMF": "Business Cycle Funds",
         "nfo": False,
         "navBase": False,
-        "monthly": {"May-26": 0.65, "Jun-26": None},
+        "monthly": {"May-26": 0.65, "Jun-26": 0.89},
         "rsi": 0.65,
         "r1m": None,
         "r3m": None,
@@ -671,7 +696,17 @@ def _annualised(rsi, inception_str):
     if rsi is None or not inception_str:
         return None
     try:
-        d = datetime.strptime(inception_str, "%d-%b-%Y")
+        # Handle formats: "24-Oct-2025", "24 Oct 2025", "Oct 24, 2025"
+        s = str(inception_str).strip()
+        d = None
+        for fmt in ("%d-%b-%Y", "%d %b %Y", "%b %d, %Y", "%d/%m/%Y", "%Y-%m-%d"):
+            try:
+                d = datetime.strptime(s, fmt)
+                break
+            except ValueError:
+                continue
+        if not d:
+            return None
         years = (datetime.now() - d).days / 365.25
         if years <= 0: return None
         return round((math.pow(1 + rsi / 100, 1 / years) - 1) * 100, 2)
@@ -732,6 +767,59 @@ def refresh():
                     log.info(f"Auto-computed {prev_mk} return for {fid}: {ret}%")
             f["prev_nav"] = rec["nav"]
             f["prev_date"] = rec["date"]
+
+    # ── Fetch index fund NAVs from AMFI NAVAll.txt ──
+    try:
+        nav_url = "https://www.amfiindia.com/spages/NAVAll.txt"
+        nav_req = urllib.request.Request(nav_url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        })
+        with urllib.request.urlopen(nav_req, timeout=20) as nr:
+            nav_text = nr.read().decode('utf-8', errors='ignore')
+        
+        # Build ISIN -> NAV lookup from NAVAll.txt
+        # Format: SchemeCode;ISIN1;ISIN2;SchemeName;NAV;Date
+        nav_lookup = {}
+        for line in nav_text.split('\n'):
+            parts = line.strip().split(';')
+            if len(parts) >= 6:
+                isin1, isin2 = parts[1].strip(), parts[2].strip()
+                try:
+                    nav_val = float(parts[4].strip())
+                    nav_date_str = parts[5].strip()
+                    if nav_val > 0:
+                        if isin1 and isin1 != '-': nav_lookup[isin1] = (nav_val, nav_date_str)
+                        if isin2 and isin2 != '-': nav_lookup[isin2] = (nav_val, nav_date_str)
+                except: pass
+        
+        # Update each index fund's monthly returns
+        for idx_name, idx_info in INDEX_FUNDS.items():
+            isin = idx_info["isin"]
+            rec = nav_lookup.get(isin)
+            if not rec: continue
+            new_nav, new_date = rec
+            mk = _month_key(new_date)
+            prev = _index_navs.get(idx_name, {})
+            prev_mk = _month_key(prev.get("prev_date", ""))
+            
+            if mk and prev_mk and mk != prev_mk:
+                prev_nav = prev.get("prev_nav")
+                if prev_nav and prev_nav > 0:
+                    ret = _pct(new_nav, prev_nav)
+                    monthly = prev.get("monthly", {})
+                    monthly[prev_mk] = ret
+                    _index_navs[idx_name] = {**prev, "monthly": monthly, "prev_nav": new_nav, "prev_date": new_date}
+                    log.info(f"Index return computed: {idx_name} {prev_mk} = {ret}%")
+            else:
+                if idx_name not in _index_navs:
+                    _index_navs[idx_name] = {"monthly": {}, "prev_nav": new_nav, "prev_date": new_date}
+                else:
+                    _index_navs[idx_name]["prev_nav"] = new_nav
+                    _index_navs[idx_name]["prev_date"] = new_date
+        
+        log.info(f"Index fund NAVs updated: {len([k for k in _index_navs if _index_navs[k].get('monthly')])} with monthly data")
+    except Exception as e:
+        log.warning(f"Index fund NAV fetch failed: {e}")
 
     # Auto-detect new funds
     known_prefixes = {}
@@ -844,7 +932,15 @@ def api_data():
         nav_date = _nav_date
         last_updated = _last_updated
 
-    months = list(NIFTY.keys())
+    # Derive months from fund monthly data, sorted chronologically
+    from datetime import datetime as _dt
+    def _mk_sort(mk):
+        try: return _dt.strptime(mk, '%b-%y')
+        except: return _dt.min
+    all_months = set()
+    for f in FUND_REGISTRY.values():
+        all_months.update((f.get('monthly') or {}).keys())
+    months = sorted(all_months, key=_mk_sort)
     funds_out = []
     for fid, f in FUND_REGISTRY.items():
         isin = ISIN_MAP.get(fid)
@@ -886,12 +982,41 @@ def api_data():
             "compMF": COMP_MF_OVERRIDE.get(fid) or f.get("compMF") or COMP_MF_MAP.get(cat),
         })
 
+    # Compute stats server-side so frontend always shows live numbers
+    live_funds = [f for f in funds_out if not f.get('nfo')]
+    aum_total = sum(f.get('aum') or 0 for f in live_funds)
+    rsi_vals = [f['rsi'] for f in live_funds if f.get('rsi') is not None]
+    avg_rsi = round(sum(rsi_vals) / len(rsi_vals), 2) if rsi_vals else 0
+    amcs = len(set(f['amc'] for f in live_funds))
+    cats = len(set(f['cat'] for f in live_funds))
+    nfo_count = len([f for f in funds_out if f.get('nfo')])
+
+    # Build index monthly returns for frontend
+    index_data = {}
+    with _lock:
+        idx_snap = dict(_index_navs)
+    for idx_name, idx_info in idx_snap.items():
+        index_data[idx_name] = {
+            "label": INDEX_FUNDS[idx_name]["label"],
+            "monthly": idx_info.get("monthly", {}),
+        }
+
     return jsonify({
         "funds": funds_out,
         "months": months,
-        "nifty": NIFTY,
+        "nifty": {},  # kept for compatibility
+        "indices": index_data,
+        "catBenchmark": CAT_BENCHMARK,
         "navDate": nav_date,
         "lastUpdated": last_updated,
+        "stats": {
+            "liveSIFs": len(live_funds),
+            "nfoCount": nfo_count,
+            "amcs": amcs,
+            "aumCr": round(aum_total, 1),
+            "categories": cats,
+            "avgRsi": avg_rsi,
+        }
     })
 
 
@@ -910,8 +1035,41 @@ def index():
 # STARTUP
 # ================================================================
 
+def _compute_static_returns():
+    """Compute annualised returns from registry data on startup,
+    before first AMFI fetch completes."""
+    from datetime import datetime as _dt2
+    def _mk2(mk):
+        try: return _dt2.strptime(mk, '%b-%y')
+        except: return _dt2.min
+    all_m = set()
+    for f in FUND_REGISTRY.values():
+        all_m.update((f.get('monthly') or {}).keys())
+    months_list = sorted(all_m, key=_mk2)
+    for fid, f in FUND_REGISTRY.items():
+        if f.get('nfo'): continue
+        # Compute annualised from existing rsi
+        f['ann'] = _annualised(f.get('rsi'), f.get('inception'))
+        # Compute 1M, 3M from monthly data
+        monthly = f.get('monthly') or {}
+        if months_list:
+            f['r1m'] = monthly.get(months_list[-1])
+        if len(months_list) >= 3:
+            c = 1.0
+            for m in months_list[-3:]:
+                v = monthly.get(m)
+                if v is not None: c *= (1 + v/100)
+            f['r3m'] = round((c-1)*100, 2)
+        if len(months_list) >= 6:
+            c = 1.0
+            for m in months_list[-6:]:
+                v = monthly.get(m)
+                if v is not None: c *= (1 + v/100)
+            f['r6m'] = round((c-1)*100, 2)
+
 def _startup():
-    refresh()
+    _compute_static_returns()  # instant, no network needed
+    refresh()                  # fetch live NAVs from AMFI
     threading.Thread(target=_refresh_loop, daemon=True).start()
 
 
