@@ -651,7 +651,8 @@ FUND_REGISTRY = {
 # ================================================================
 
 AMFI_API = "https://www.amfiindia.com/api/sif-latest-nav?type="
-_live_navs = {}
+_live_navs = {}       # SIF fund ISINs -> {nav, date}
+_index_navs = {}      # index name -> {monthly: {}, prev_nav, prev_date}
 _nav_date = None
 _last_updated = None
 _lock = threading.Lock()
